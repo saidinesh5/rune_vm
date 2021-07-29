@@ -63,7 +63,7 @@ protected:
     [[nodiscard]] bool requestRuneInputFromCapability(
         const rune_vm::TRuneId runeId,
         const rune_vm::DataView<uint8_t> buffer,
-        const rune_vm::capabilities::TId capabilityId) noexcept final {
+        const rune_vm::capabilities::TId capabilityId) noexcept override {
         m_log.log(rune_vm::Severity::Debug, "requestRuneInputFromCapability called");
         // check if you have input ready, if no return false
         // ...
@@ -114,10 +114,43 @@ private:
             // report succesfull update (or don't, if it has failed for some reason)
             return true;
         }
+
+        if  (key == "source") {
+            if(!std::holds_alternative<int32_t>(parameter.m_data))
+                return false;
+
+            const auto& source = std::get<int32_t>(parameter.m_data);
+
+            if (source ==  0 || source == 1) {
+                m_currentSource =  source;
+                return  true;
+            }
+        }
 //        else ...
 
         return false;
     }
+
+    [[nodiscard]] bool requestRuneInputFromCapability(
+        const rune_vm::TRuneId runeId,
+        const rune_vm::DataView<uint8_t> buffer,
+        const rune_vm::capabilities::TId capabilityId) noexcept final {
+        m_log.log(rune_vm::Severity::Debug, "requestRuneInputFromCapability called");
+        // check if you have input ready, if no return false
+        // ...
+        //
+
+        // null args should never be passed to the delegates, but just in case
+        if(!buffer.m_data)
+            return false;
+
+        // write input to provided buffer - sizes must match
+        std::fill(buffer.begin(), buffer.end(),  m_currentSource == 0 ? 'A' : 'B');
+
+        return true;
+    }
+
+    uint32_t m_currentSource =  0;
 };
 
 struct MultiCapDelegate : public BaseDelegate<
@@ -160,10 +193,10 @@ int main(int argc, char** argv) {
         //
         // Also NEVER put rune_vm objects shared_ptrs inside the delegate - you might create reference loop this way
         auto imageDelegate = std::make_shared<ImageDelegate>(logger);
-        auto multiDelegate = std::make_shared<MultiCapDelegate>(logger);
+//        auto multiDelegate = std::make_shared<MultiCapDelegate>(logger);
 
         // load rune
-        auto rune = runtime->loadRune({imageDelegate, multiDelegate}, runePath);
+        auto rune = runtime->loadRune({imageDelegate  /*, multiDelegate*/}, runePath);
 
         runes.push_back(std::move(rune));
     }
